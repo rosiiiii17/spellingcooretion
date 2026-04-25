@@ -63,9 +63,11 @@ def prediksi_dld(kata):
     kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
+    # jika sudah benar
     if kata in kamus_txt:
         return kata_asli, "BENAR"
 
+    # skip kata terlalu pendek
     if len(kata) <= 3:
         return kata_asli, "SKIP"
 
@@ -78,27 +80,46 @@ def prediksi_dld(kata):
         bonus = similarity_bonus(kata, k)
         ranking.append((k, jarak, bonus))
 
-    # 🔥 RANKING CERDAS
+    # sorting cerdas
     ranking.sort(key=lambda x: (x[1], abs(len(x[0]) - len(kata)), -x[2]))
 
-    if len(ranking) > 0:
-        kandidat_terbaik, jarak, _ = ranking[0]
+    if len(ranking) == 0:
+        return kata_asli, "TIDAK DIKOREKSI"
 
-        if jarak <= 2:
-            return kandidat_terbaik, "DLD"
+    # ======================
+    # 🔥 AMBIL TOP 3 KANDIDAT
+    # ======================
+    top_kandidat = ranking[:3]
+
+    kandidat_terbaik = None
+
+    for k, jarak, bonus in top_kandidat:
+        # pilih yang panjangnya masuk akal
+        if len(k) >= len(kata):
+            kandidat_terbaik = (k, jarak)
+            break
+
+    # fallback
+    if kandidat_terbaik is None:
+        kandidat_terbaik = (ranking[0][0], ranking[0][1])
+
+    kandidat_final, jarak = kandidat_terbaik
+
+    if jarak <= 2:
+        return kandidat_final, "DLD"
 
     return kata_asli, "TIDAK DIKOREKSI"
 
 
 # ======================
-# UI
+# UI STREAMLIT
 # ======================
 st.set_page_config(page_title="Skenario 1 - DLD", layout="centered")
 
 st.title("📝 Spelling Correction - Skenario 1")
 st.write("Metode: Damerau Levenshtein Distance (DLD)")
 
-st.info("⚠️ Skenario 1 hanya menggunakan DLD, tanpa konteks bahasa")
+st.info("⚠️ Skenario 1 hanya menggunakan DLD tanpa konteks bahasa")
 
 teks = st.text_area("Masukkan kalimat:")
 
