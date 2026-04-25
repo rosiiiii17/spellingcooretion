@@ -56,20 +56,18 @@ def filtering_kamus(kata):
 
 
 # ======================
-# PREDIKSI DLD (FINAL)
+# PREDIKSI DLD + TOP 3
 # ======================
 def prediksi_dld(kata):
 
     kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
-    # jika sudah benar
     if kata in kamus_txt:
-        return kata_asli, "BENAR"
+        return kata_asli, "BENAR", []
 
-    # skip kata terlalu pendek
     if len(kata) <= 3:
-        return kata_asli, "SKIP"
+        return kata_asli, "SKIP", []
 
     kandidat = filtering_kamus(kata)
 
@@ -80,35 +78,22 @@ def prediksi_dld(kata):
         bonus = similarity_bonus(kata, k)
         ranking.append((k, jarak, bonus))
 
-    # sorting cerdas
+    # 🔥 ranking cerdas
     ranking.sort(key=lambda x: (x[1], abs(len(x[0]) - len(kata)), -x[2]))
 
     if len(ranking) == 0:
-        return kata_asli, "TIDAK DIKOREKSI"
+        return kata_asli, "TIDAK DIKOREKSI", []
 
-    # ======================
-    # 🔥 AMBIL TOP 3 KANDIDAT
-    # ======================
-    top_kandidat = ranking[:3]
+    # 🔥 ambil TOP 3
+    top3 = ranking[:3]
 
-    kandidat_terbaik = None
-
-    for k, jarak, bonus in top_kandidat:
-        # pilih yang panjangnya masuk akal
-        if len(k) >= len(kata):
-            kandidat_terbaik = (k, jarak)
-            break
-
-    # fallback
-    if kandidat_terbaik is None:
-        kandidat_terbaik = (ranking[0][0], ranking[0][1])
-
-    kandidat_final, jarak = kandidat_terbaik
+    # ambil kandidat utama
+    kandidat_final, jarak, _ = top3[0]
 
     if jarak <= 2:
-        return kandidat_final, "DLD"
+        return kandidat_final, "DLD", top3
 
-    return kata_asli, "TIDAK DIKOREKSI"
+    return kata_asli, "TIDAK DIKOREKSI", top3
 
 
 # ======================
@@ -130,12 +115,12 @@ if st.button("Koreksi"):
 
     for kata in teks.split():
 
-        pred, metode = prediksi_dld(kata)
+        pred, metode, top3 = prediksi_dld(kata)
 
         hasil_kalimat.append(pred)
 
         if pred != kata:
-            detail.append((kata, pred, metode))
+            detail.append((kata, pred, metode, top3))
 
     hasil = " ".join(hasil_kalimat)
 
@@ -144,5 +129,12 @@ if st.button("Koreksi"):
 
     if detail:
         st.subheader("🔍 Detail Perbaikan:")
-        for d in detail:
-            st.write(f"❌ {d[0]} → ✅ {d[1]} ({d[2]})")
+
+        for kata, pred, metode, top3 in detail:
+
+            st.write(f"❌ {kata} → ✅ {pred} ({metode})")
+
+            if top3:
+                st.write("   🔎 Top Kandidat:")
+                for i, (k, j, _) in enumerate(top3, start=1):
+                    st.write(f"   {i}. {k} (jarak={j})")
