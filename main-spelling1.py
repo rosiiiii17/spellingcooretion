@@ -1,10 +1,14 @@
 import streamlit as st
 
 # ======================
-# LOAD KAMUS
+# LOAD KAMUS (FIXED)
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
-    kamus_txt = set([line.strip() for line in f])
+    kamus_txt = set([
+        line.strip().lower()
+        for line in f
+        if " " not in line.strip()   # 🔥 BUANG YANG ADA SPASI
+    ])
 
 
 # ======================
@@ -42,7 +46,7 @@ def similarity_bonus(a, b):
 
 
 # ======================
-# FILTERING KANDIDAT
+# FILTERING KAMUS
 # ======================
 def filtering_kamus(kata):
     kandidat = []
@@ -56,16 +60,18 @@ def filtering_kamus(kata):
 
 
 # ======================
-# PREDIKSI DLD + TOP 3
+# PREDIKSI DLD (FINAL)
 # ======================
 def prediksi_dld(kata):
 
     kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
+    # kata benar
     if kata in kamus_txt:
         return kata_asli, "BENAR", []
 
+    # skip terlalu pendek
     if len(kata) <= 3:
         return kata_asli, "SKIP", []
 
@@ -78,18 +84,18 @@ def prediksi_dld(kata):
         bonus = similarity_bonus(kata, k)
         ranking.append((k, jarak, bonus))
 
-    # 🔥 ranking cerdas
+    # 🔥 SORT CERDAS
     ranking.sort(key=lambda x: (x[1], abs(len(x[0]) - len(kata)), -x[2]))
 
     if len(ranking) == 0:
         return kata_asli, "TIDAK DIKOREKSI", []
 
-    # 🔥 ambil TOP 3
+    # TOP 3
     top3 = ranking[:3]
 
-    # ambil kandidat utama
     kandidat_final, jarak, _ = top3[0]
 
+    # 🔥 BATAS LOGIS
     if jarak <= 2:
         return kandidat_final, "DLD", top3
 
@@ -104,7 +110,7 @@ st.set_page_config(page_title="Skenario 1 - DLD", layout="centered")
 st.title("📝 Spelling Correction - Skenario 1")
 st.write("Metode: Damerau Levenshtein Distance (DLD)")
 
-st.info("⚠️ Skenario 1 hanya menggunakan DLD tanpa konteks bahasa")
+st.info("⚠️ Skenario 1 hanya untuk typo (tidak menangani spasi)")
 
 teks = st.text_area("Masukkan kalimat:")
 
