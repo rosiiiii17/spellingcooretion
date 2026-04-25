@@ -35,21 +35,17 @@ def damerau_levenshtein_distance(s1, s2):
 
 
 # ======================
-# FILTERING KANDIDAT
+# FILTERING KANDIDAT (FIXED)
 # ======================
 def filtering_kamus(kata):
     kandidat = []
 
     for k in kamus_txt:
+        # filter panjang saja (jangan terlalu ketat)
         if abs(len(k) - len(kata)) > 2:
-            continue
-        if k[0] != kata[0]:
             continue
 
         kandidat.append(k)
-
-        if len(kandidat) >= 10:
-            break
 
     return kandidat
 
@@ -59,14 +55,11 @@ def filtering_kamus(kata):
 # ======================
 def prediksi_dld(kata):
 
-    # normalisasi
     kata = kata.lower().strip(",.!?")
 
-    # kata sudah benar
     if kata in kamus_txt:
         return kata, "BENAR"
 
-    # skip kata terlalu pendek
     if len(kata) <= 3:
         return kata, "SKIP"
 
@@ -83,22 +76,20 @@ def prediksi_dld(kata):
     if len(ranking) > 0:
         kandidat_terbaik, jarak = ranking[0]
 
-        # 🔥 FILTER BIAR LOGIS
-        if jarak <= 2 and abs(len(kandidat_terbaik) - len(kata)) <= 2:
+        # 🔥 LOGIKA YANG BENAR
+        if jarak <= 2:
             return kandidat_terbaik, "DLD"
 
     return kata, "TIDAK DIKOREKSI"
 
 
 # ======================
-# UI STREAMLIT
+# UI
 # ======================
 st.set_page_config(page_title="Skenario 1 - DLD", layout="centered")
 
 st.title("📝 Spelling Correction - Skenario 1")
 st.write("Metode: Damerau Levenshtein Distance (DLD)")
-
-st.info("⚠️ Skenario 1 hanya menggunakan DLD sehingga koreksi terbatas")
 
 teks = st.text_area("Masukkan kalimat:")
 
