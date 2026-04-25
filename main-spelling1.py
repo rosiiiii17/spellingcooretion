@@ -1,13 +1,13 @@
 import streamlit as st
 
 # ======================
-# LOAD KAMUS (FIXED)
+# LOAD KAMUS (FIX: TANPA SPASI)
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     kamus_txt = set([
         line.strip().lower()
         for line in f
-        if " " not in line.strip()   # 🔥 BUANG YANG ADA SPASI
+        if " " not in line.strip()   # 🔥 penting: buang kata yang ada spasi
     ])
 
 
@@ -49,29 +49,22 @@ def similarity_bonus(a, b):
 # FILTERING KAMUS
 # ======================
 def filtering_kamus(kata):
-    kandidat = []
-
-    for k in kamus_txt:
-        if abs(len(k) - len(kata)) > 2:
-            continue
-        kandidat.append(k)
-
-    return kandidat
+    return [k for k in kamus_txt if abs(len(k) - len(kata)) <= 2]
 
 
 # ======================
-# PREDIKSI DLD (FINAL)
+# PREDIKSI DLD FINAL
 # ======================
 def prediksi_dld(kata):
 
     kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
-    # kata benar
+    # BENAR
     if kata in kamus_txt:
         return kata_asli, "BENAR", []
 
-    # skip terlalu pendek
+    # terlalu pendek
     if len(kata) <= 3:
         return kata_asli, "SKIP", []
 
@@ -84,18 +77,15 @@ def prediksi_dld(kata):
         bonus = similarity_bonus(kata, k)
         ranking.append((k, jarak, bonus))
 
-    # 🔥 SORT CERDAS
     ranking.sort(key=lambda x: (x[1], abs(len(x[0]) - len(kata)), -x[2]))
 
     if len(ranking) == 0:
         return kata_asli, "TIDAK DIKOREKSI", []
 
-    # TOP 3
     top3 = ranking[:3]
 
     kandidat_final, jarak, _ = top3[0]
 
-    # 🔥 BATAS LOGIS
     if jarak <= 2:
         return kandidat_final, "DLD", top3
 
@@ -125,7 +115,8 @@ if st.button("Koreksi"):
 
         hasil_kalimat.append(pred)
 
-        if pred != kata:
+        # 🔥 tampilkan SEMUA selain yang benar
+        if metode != "BENAR":
             detail.append((kata, pred, metode, top3))
 
     hasil = " ".join(hasil_kalimat)
@@ -133,13 +124,24 @@ if st.button("Koreksi"):
     st.subheader("✅ Hasil Perbaikan:")
     st.success(hasil)
 
+    # ======================
+    # DETAIL
+    # ======================
     if detail:
         st.subheader("🔍 Detail Perbaikan:")
 
         for kata, pred, metode, top3 in detail:
 
-            st.write(f"❌ {kata} → ✅ {pred} ({metode})")
+            if metode == "TIDAK DIKOREKSI":
+                st.write(f"⚠️ {kata} → ❌ tidak bisa dikoreksi")
 
+            elif metode == "SKIP":
+                st.write(f"⚠️ {kata} → (kata terlalu pendek, dilewati)")
+
+            else:
+                st.write(f"❌ {kata} → ✅ {pred} ({metode})")
+
+            # tampilkan kandidat
             if top3:
                 st.write("   🔎 Top Kandidat:")
                 for i, (k, j, _) in enumerate(top3, start=1):
