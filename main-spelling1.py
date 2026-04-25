@@ -35,33 +35,39 @@ def damerau_levenshtein_distance(s1, s2):
 
 
 # ======================
-# FILTERING KANDIDAT (FIXED)
+# SIMILARITY BONUS
+# ======================
+def similarity_bonus(a, b):
+    return sum(1 for x, y in zip(a, b) if x == y)
+
+
+# ======================
+# FILTERING KANDIDAT
 # ======================
 def filtering_kamus(kata):
     kandidat = []
 
     for k in kamus_txt:
-        # filter panjang saja (jangan terlalu ketat)
         if abs(len(k) - len(kata)) > 2:
             continue
-
         kandidat.append(k)
 
     return kandidat
 
 
 # ======================
-# PREDIKSI DLD (FIXED)
+# PREDIKSI DLD (FINAL)
 # ======================
 def prediksi_dld(kata):
 
+    kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
     if kata in kamus_txt:
-        return kata, "BENAR"
+        return kata_asli, "BENAR"
 
     if len(kata) <= 3:
-        return kata, "SKIP"
+        return kata_asli, "SKIP"
 
     kandidat = filtering_kamus(kata)
 
@@ -69,18 +75,19 @@ def prediksi_dld(kata):
 
     for k in kandidat:
         jarak = damerau_levenshtein_distance(kata, k)
-        ranking.append((k, jarak))
+        bonus = similarity_bonus(kata, k)
+        ranking.append((k, jarak, bonus))
 
-    ranking.sort(key=lambda x: x[1])
+    # 🔥 RANKING CERDAS
+    ranking.sort(key=lambda x: (x[1], abs(len(x[0]) - len(kata)), -x[2]))
 
     if len(ranking) > 0:
-        kandidat_terbaik, jarak = ranking[0]
+        kandidat_terbaik, jarak, _ = ranking[0]
 
-        # 🔥 LOGIKA YANG BENAR
         if jarak <= 2:
             return kandidat_terbaik, "DLD"
 
-    return kata, "TIDAK DIKOREKSI"
+    return kata_asli, "TIDAK DIKOREKSI"
 
 
 # ======================
@@ -90,6 +97,8 @@ st.set_page_config(page_title="Skenario 1 - DLD", layout="centered")
 
 st.title("📝 Spelling Correction - Skenario 1")
 st.write("Metode: Damerau Levenshtein Distance (DLD)")
+
+st.info("⚠️ Skenario 1 hanya menggunakan DLD, tanpa konteks bahasa")
 
 teks = st.text_area("Masukkan kalimat:")
 
