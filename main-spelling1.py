@@ -1,7 +1,8 @@
 import streamlit as st
+import re
 
 # ======================
-# LOAD KAMUS (TANPA SPASI)
+# LOAD KAMUS
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     kamus_txt = set([
@@ -9,7 +10,6 @@ with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
         for line in f
         if " " not in line.strip()
     ])
-
 
 # ======================
 # DLD
@@ -34,53 +34,61 @@ def damerau_levenshtein_distance(s1, s2):
 
     return d[len(s1)-1, len(s2)-1]
 
-
 # ======================
 # FILTER KANDIDAT
 # ======================
 def filtering_kamus(kata):
     return [k for k in kamus_txt if abs(len(k) - len(kata)) <= 2]
 
-
 # ======================
-# MODEL SKENARIO 1 (DLD ONLY)
+# MODEL SKENARIO 1 (DLD + HEURISTIC)
 # ======================
 def model_skenario1(kata):
 
+    kata_asli = kata
     kata = kata.lower().strip(",.!?")
 
-    # 1. kata benar
+    # jika sudah benar
     if kata in kamus_txt:
-        return kata, "BENAR", []
+        return kata, "BENAR", [], kata_asli
 
-    # 2. kandidat
     kandidat = filtering_kamus(kata)
 
     ranking = []
     for k in kandidat:
         jarak = damerau_levenshtein_distance(kata, k)
-        ranking.append((k, jarak))
+
+        # 🔥 heuristic (sesuai ipynb)
+        skor = jarak
+        skor += abs(len(kata) - len(k)) * 0.5
+
+        if kata[:2] == k[:2]:
+            skor -= 0.5
+
+        if kata in k or k in kata:
+            skor -= 0.5
+
+        ranking.append((k, skor))
 
     ranking.sort(key=lambda x: x[1])
 
     if ranking:
         top3 = ranking[:3]
-        kandidat_terbaik, jarak = ranking[0]
+        kandidat_terbaik, skor = ranking[0]
 
-        # hanya koreksi typo ringan
-        if jarak <= 2:
-            return kandidat_terbaik, "DLD", top3
+        # threshold typo ringan
+        if skor <= 2.5:
+            return kandidat_terbaik, "DLD", top3, kata_asli
 
-        return kata, "TIDAK DIKOREKSI", top3
+        return kata, "TIDAK DIKOREKSI", top3, kata_asli
 
-    return kata, "TIDAK DIKOREKSI", []
-
+    return kata, "TIDAK DIKOREKSI", [], kata_asli
 
 # ======================
-# UI
+# UI STREAMLIT
 # ======================
 st.title("Spelling Correction - Skenario 1")
-st.write("Metode: DLD")
+st.write("Metode: Damerau Levenshtein Distance + Heuristic")
 
 teks = st.text_area("Masukkan kalimat:")
 
@@ -88,30 +96,44 @@ if st.button("Koreksi"):
 
     hasil_kalimat = []
     detail = []
+    jumlah_koreksi = 0
 
     for kata in teks.split():
 
-        hasil, metode, top3 = model_skenario1(kata)
+        hasil, metode, top3, kata_asli = model_skenario1(kata)
 
-        hasil_kalimat.append(hasil)
+        # 🔥 PENANDA KOREKSI
+        if metode == "DLD" and kata.lower() != hasil:
+            hasil_kalimat.append(f"[{kata} → {hasil}]")
+            jumlah_koreksi += 1
+        else:
+            hasil_kalimat.append(hasil)
 
         if metode != "BENAR":
             detail.append((kata, hasil, metode, top3))
 
+    # ======================
+    # OUTPUT HASIL
+    # ======================
     st.subheader("Hasil:")
     st.success(" ".join(hasil_kalimat))
 
+    st.info(f"Jumlah kata dikoreksi: {jumlah_koreksi}")
+
+    # ======================
+    # DETAIL
+    # ======================
     st.subheader("Detail:")
 
     for kata, hasil, metode, top3 in detail:
 
         if metode == "TIDAK DIKOREKSI":
-            st.write(f"⚠️ {kata} → tidak bisa dikoreksi")
+            st.warning(f"{kata} → tidak bisa dikoreksi")
 
         else:
-            st.write(f"❌ {kata} → {hasil} ({metode})")
+            st.error(f"{kata} → {hasil} ({metode})")
 
         if top3:
             st.write("Top Kandidat:")
             for i, (k, j) in enumerate(top3, 1):
-                st.write(f"{i}. {k} (jarak={j})")
+                st.write(f"{i}. {k} (skor={round(j,2)})")
