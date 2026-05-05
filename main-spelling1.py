@@ -1,10 +1,10 @@
 import streamlit as st
 import re
 import json
-import requests
+import gzip
 
 # ======================
-# LOAD TXT (LOKAL - SAMA)
+# LOAD TXT (FILTERING)
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     kamus_txt = set([
@@ -14,32 +14,28 @@ with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     ])
 
 # ======================
-# LOAD JSON (GOOGLE DRIVE)
+# LOAD JSON GZIP (PENGECEKAN)
 # ======================
 @st.cache_data
-def load_kamus_json(url):
-    response = requests.get(url)
-    return set(response.json())
-
-# 🔥 GANTI DENGAN LINK DRIVE KAMU
-url = "https://drive.google.com/file/d/15E8-iE_rB9laTEuGvcEEJnKMOLm15rdX/view?usp=sharing"
+def load_kamus_json():
+    with gzip.open("kbbi.json.gz", "rt", encoding="utf-8") as f:
+        data = json.load(f)
+    return set([item["kata"] for item in data if "kata" in item])
 
 try:
-    kamus_json = load_kamus_json(url)
+    kamus_json = load_kamus_json()
 except:
-    st.error("Gagal load kamus dari Google Drive")
+    st.error("Gagal load kamus JSON")
     st.stop()
 
-
 # ======================
-# NORMALISASI (SAMA)
+# NORMALISASI
 # ======================
 def normalize_word(word):
     return re.sub(r'(.)\1+', r'\1', word)
 
-
 # ======================
-# CEK KAMUS (SAMA)
+# CEK KAMUS (JSON)
 # ======================
 def cek_kamus_lengkap(kata):
     if kata in kamus_json:
@@ -50,9 +46,8 @@ def cek_kamus_lengkap(kata):
         return "UNKNOWN"
     return "SALAH"
 
-
 # ======================
-# DLD (SAMA)
+# DLD
 # ======================
 def damerau_levenshtein_distance(s1, s2):
     d = {}
@@ -74,9 +69,8 @@ def damerau_levenshtein_distance(s1, s2):
 
     return d[len(s1)-1, len(s2)-1]
 
-
 # ======================
-# FILTERING (SAMA)
+# FILTERING (TXT)
 # ======================
 def filtering_kamus(kata):
 
@@ -99,9 +93,8 @@ def filtering_kamus(kata):
 
     return hasil
 
-
 # ======================
-# MODEL (SAMA PERSIS)
+# MODEL (IDENTIK IPYNB)
 # ======================
 def proses_kata(kata):
 
@@ -144,9 +137,8 @@ def proses_kata(kata):
 
     return kata, "TIDAK DIKOREKSI", []
 
-
 # ======================
-# UI (WEB)
+# UI STREAMLIT
 # ======================
 st.title("Spelling Correction - Skenario 1")
 st.write("Metode: Damerau Levenshtein Distance")
@@ -162,7 +154,7 @@ if st.button("Koreksi"):
 
         hasil, metode, top3 = proses_kata(kata)
 
-        # hanya tampilan (tidak ubah logika)
+        # penanda koreksi (TAMPILAN SAJA)
         if metode == "DLD" and kata.lower() != hasil:
             hasil_kalimat.append(f"[{kata} → {hasil}]")
         else:
