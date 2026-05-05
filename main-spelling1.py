@@ -1,9 +1,10 @@
 import streamlit as st
 import re
 import json
+import requests
 
 # ======================
-# LOAD DATA (SAMA PERSIS)
+# LOAD TXT (LOKAL - SAMA)
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     kamus_txt = set([
@@ -12,8 +13,22 @@ with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
         if " " not in line.strip()
     ])
 
-with open("kamus.json", "r", encoding="utf-8") as f:
-    kamus_json = set(json.load(f))
+# ======================
+# LOAD JSON (GOOGLE DRIVE)
+# ======================
+@st.cache_data
+def load_kamus_json(url):
+    response = requests.get(url)
+    return set(response.json())
+
+# 🔥 GANTI DENGAN LINK DRIVE KAMU
+url = "https://drive.google.com/file/d/15E8-iE_rB9laTEuGvcEEJnKMOLm15rdX/view?usp=sharing"
+
+try:
+    kamus_json = load_kamus_json(url)
+except:
+    st.error("Gagal load kamus dari Google Drive")
+    st.stop()
 
 
 # ======================
@@ -131,10 +146,11 @@ def proses_kata(kata):
 
 
 # ======================
-# UI (INI SAJA YANG BARU)
+# UI (WEB)
 # ======================
 st.title("Spelling Correction - Skenario 1")
-st.title("Metode : DAMERAU LEVENSTHEIN DISTANCE")
+st.write("Metode: Damerau Levenshtein Distance")
+
 teks = st.text_area("Masukkan kalimat:")
 
 if st.button("Koreksi"):
@@ -146,7 +162,7 @@ if st.button("Koreksi"):
 
         hasil, metode, top3 = proses_kata(kata)
 
-        # hanya tambahan tampilan (tidak ubah logika)
+        # hanya tampilan (tidak ubah logika)
         if metode == "DLD" and kata.lower() != hasil:
             hasil_kalimat.append(f"[{kata} → {hasil}]")
         else:
