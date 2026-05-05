@@ -1,8 +1,9 @@
 import streamlit as st
 import re
+import json
 
 # ======================
-# LOAD KAMUS
+# LOAD DATA (SAMA PERSIS)
 # ======================
 with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
     kamus_txt = set([
@@ -11,8 +12,32 @@ with open("kbbi_dataset.txt", "r", encoding="utf-8") as f:
         if " " not in line.strip()
     ])
 
+with open("kamus.json", "r", encoding="utf-8") as f:
+    kamus_json = set(json.load(f))
+
+
 # ======================
-# DLD
+# NORMALISASI (SAMA)
+# ======================
+def normalize_word(word):
+    return re.sub(r'(.)\1+', r'\1', word)
+
+
+# ======================
+# CEK KAMUS (SAMA)
+# ======================
+def cek_kamus_lengkap(kata):
+    if kata in kamus_json:
+        return "BENAR"
+    if not re.match(r'^[a-z]+$', kata):
+        return "UNKNOWN"
+    if len(kata) <= 2:
+        return "UNKNOWN"
+    return "SALAH"
+
+
+# ======================
+# DLD (SAMA)
 # ======================
 def damerau_levenshtein_distance(s1, s2):
     d = {}
@@ -34,23 +59,45 @@ def damerau_levenshtein_distance(s1, s2):
 
     return d[len(s1)-1, len(s2)-1]
 
-# ======================
-# FILTER KANDIDAT
-# ======================
-def filtering_kamus(kata):
-    return [k for k in kamus_txt if abs(len(k) - len(kata)) <= 2]
 
 # ======================
-# MODEL SKENARIO 1 (DLD + HEURISTIC)
+# FILTERING (SAMA)
 # ======================
-def model_skenario1(kata):
+def filtering_kamus(kata):
+
+    kata = normalize_word(kata)
+    hasil = []
+
+    for k in kamus_txt:
+
+        if abs(len(k) - len(kata)) > 2:
+            continue
+
+        if kata[0] != k[0]:
+            continue
+
+        pola = ".*".join(list(kata))
+        if not re.search(pola, k):
+            continue
+
+        hasil.append(k)
+
+    return hasil
+
+
+# ======================
+# MODEL (SAMA PERSIS)
+# ======================
+def proses_kata(kata):
 
     kata_asli = kata
     kata = kata.lower().strip(",.!?")
+    kata = normalize_word(kata)
 
-    # jika sudah benar
-    if kata in kamus_txt:
-        return kata, "BENAR", [], kata_asli
+    status = cek_kamus_lengkap(kata)
+
+    if status == "BENAR":
+        return kata, "BENAR", []
 
     kandidat = filtering_kamus(kata)
 
@@ -58,7 +105,6 @@ def model_skenario1(kata):
     for k in kandidat:
         jarak = damerau_levenshtein_distance(kata, k)
 
-        # 🔥 heuristic (sesuai ipynb)
         skor = jarak
         skor += abs(len(kata) - len(k)) * 0.5
 
@@ -76,60 +122,48 @@ def model_skenario1(kata):
         top3 = ranking[:3]
         kandidat_terbaik, skor = ranking[0]
 
-        # threshold typo ringan
         if skor <= 2.5:
-            return kandidat_terbaik, "DLD", top3, kata_asli
+            return kandidat_terbaik, "DLD", top3
 
-        return kata, "TIDAK DIKOREKSI", top3, kata_asli
+        return kata, "TIDAK DIKOREKSI", top3
 
-    return kata, "TIDAK DIKOREKSI", [], kata_asli
+    return kata, "TIDAK DIKOREKSI", []
+
 
 # ======================
-# UI STREAMLIT
+# UI (INI SAJA YANG BARU)
 # ======================
 st.title("Spelling Correction - Skenario 1")
-st.write("Metode: Damerau Levenshtein Distance + Heuristic")
-
+st.title("Metode : DAMERAU LEVENSTHEIN DISTANCE")
 teks = st.text_area("Masukkan kalimat:")
 
 if st.button("Koreksi"):
 
     hasil_kalimat = []
     detail = []
-    jumlah_koreksi = 0
 
     for kata in teks.split():
 
-        hasil, metode, top3, kata_asli = model_skenario1(kata)
+        hasil, metode, top3 = proses_kata(kata)
 
-        # 🔥 PENANDA KOREKSI
+        # hanya tambahan tampilan (tidak ubah logika)
         if metode == "DLD" and kata.lower() != hasil:
             hasil_kalimat.append(f"[{kata} → {hasil}]")
-            jumlah_koreksi += 1
         else:
             hasil_kalimat.append(hasil)
 
         if metode != "BENAR":
             detail.append((kata, hasil, metode, top3))
 
-    # ======================
-    # OUTPUT HASIL
-    # ======================
     st.subheader("Hasil:")
     st.success(" ".join(hasil_kalimat))
 
-    st.info(f"Jumlah kata dikoreksi: {jumlah_koreksi}")
-
-    # ======================
-    # DETAIL
-    # ======================
     st.subheader("Detail:")
 
     for kata, hasil, metode, top3 in detail:
 
         if metode == "TIDAK DIKOREKSI":
             st.warning(f"{kata} → tidak bisa dikoreksi")
-
         else:
             st.error(f"{kata} → {hasil} ({metode})")
 
