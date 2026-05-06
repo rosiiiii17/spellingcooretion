@@ -94,11 +94,16 @@ def filtering_kamus(kata):
     return hasil
 
 # ======================
-# MODEL (IDENTIK IPYNB)
+# MODEL (FIXED)
 # ======================
 def proses_kata(kata):
 
     kata_asli = kata
+
+    # ✅ SKENARIO 1: jika ada spasi → tidak dikoreksi
+    if " " in kata_asli:
+        return kata_asli, "TIDAK DIKOREKSI", []
+
     kata = kata.lower().strip(",.!?")
     kata = normalize_word(kata)
 
@@ -126,15 +131,13 @@ def proses_kata(kata):
 
     ranking.sort(key=lambda x: x[1])
 
+    # ✅ FIX: selama ada kandidat → langsung pakai terbaik
     if ranking:
         top3 = ranking[:3]
         kandidat_terbaik, skor = ranking[0]
+        return kandidat_terbaik, "DLD", top3
 
-        if skor <= 2.5:
-            return kandidat_terbaik, "DLD", top3
-
-        return kata, "TIDAK DIKOREKSI", top3
-
+    # ❌ hanya jika tidak ada kandidat sama sekali
     return kata, "TIDAK DIKOREKSI", []
 
 # ======================
@@ -154,7 +157,6 @@ if st.button("Koreksi"):
 
         hasil, metode, top3 = proses_kata(kata)
 
-        # penanda koreksi (TAMPILAN SAJA)
         if metode == "DLD" and kata.lower() != hasil:
             hasil_kalimat.append(f"[{kata} → {hasil}]")
         else:
