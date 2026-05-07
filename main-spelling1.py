@@ -157,10 +157,7 @@ if st.button("Koreksi"):
 
         hasil, metode, top3 = proses_kata(kata)
 
-        if metode == "DLD" and kata.lower() != hasil:
-            hasil_kalimat.append(f"[{kata} → {hasil}]")
-        else:
-            hasil_kalimat.append(hasil)
+        hasil_kalimat.append(hasil)
 
         if metode != "BENAR":
             detail.append((kata, hasil, metode, top3))
